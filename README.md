@@ -1,10 +1,3 @@
-#  README.md
-# 
-#  Created by:    Michael Dacre
-#  Date Created:  2014-10-10 09:38
-#  Last modified: 2014-10-10 09:49
-#
-
 qguiconnect
 ===========
 A simple series of scripts that allow you to use

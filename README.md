@@ -20,8 +20,7 @@ script like the one at /usr/share/torque-xpra/rstudio.pbs
 
 This script runs rstudio on a node with 4GB of memory. It 
 starts an xpra server on the node with the same DISPLAY port
-as the user's UID plus a random number, this prevents 
-conflicts between jobs.
+as the PBS jobid, this prevents conflicts between jobs.
 
 It also stops the server after the program finishes execution,
 this is very important to ensure the health of the nodes. Do

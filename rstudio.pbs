@@ -6,7 +6,7 @@
 #
 #  Created by:    Michael Dacre
 #  Date Created:  2014-10-09 22:45
-#  Last modified: 2014-10-10 09:22
+#  Last modified: 2014-10-10 11:12
 #
 #PBS -S /bin/bash
 #PBS -m ae
@@ -15,6 +15,7 @@ cd $PBS_O_WORKDIR
 export PYTHON3PATH="/home/dacre/lib/python:/home/dacre/lib/python:/home/dacre/lib/python"
 export PYTHONPATH="/home/dacre/lib/python:/home/dacre/lib/python:/home/dacre/lib/python"
 
-xpra start :$UID
-DISPLAY=:$UID rstudio-bin
-xpra stop :$UID
+display=$(echo $PBS_JOBID | sed 's#\..*##g')
+program=rstudio-bin
+xpra start --no-pulseaudio --start-child=$program --exit-with-children --no-daemon :$display 
+xpra stop :$display

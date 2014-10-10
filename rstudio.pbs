@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+#  rstudio.pbs
+# 
+#  Run rstudio on a server with xpra
+#
+#  Created by:    Michael Dacre
+#  Date Created:  2014-10-09 22:45
+#  Last modified: 2014-10-10 09:22
+#
+#PBS -S /bin/bash
+#PBS -m ae
+#PBS -l nodes=1:ppn=4 -l pmem=4gb -l mem=4gb
+cd $PBS_O_WORKDIR
+export PYTHON3PATH="/home/dacre/lib/python:/home/dacre/lib/python:/home/dacre/lib/python"
+export PYTHONPATH="/home/dacre/lib/python:/home/dacre/lib/python:/home/dacre/lib/python"
+
+xpra start :$UID
+DISPLAY=:$UID rstudio-bin
+xpra stop :$UID

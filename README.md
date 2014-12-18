@@ -1,5 +1,5 @@
-qguiconnect
-===========
+qconnect
+========
 A simple series of scripts that allow you to use
 torque and xpra to run persistent GUI programs on 
 a cluster.
@@ -30,10 +30,10 @@ not remove that line.
 To connect to the job, just find the job number with qstat 
 and run:
 
-    qguiconnect <job_number>
+    qconnect <job_number>
 
 NOTE:: You must disconnect from the job by killing the 
-qguiconnect session on the command line. Exiting out of the 
+qconnect session on the command line. Exiting out of the 
 window will kill the job and thus the server.
 
 Note on memory usage

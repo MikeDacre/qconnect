@@ -14,7 +14,7 @@
 #       LICENSE: MIT License, Property of Stanford, Use as you wish
 #       VERSION: 0.1
 #       CREATED: 2014-12-17 18:07
-# Last modified: 2014-12-17 19:58
+# Last modified: 2014-12-18 18:33
 #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in
 #                the Torque interactive queue
@@ -94,6 +94,23 @@ def check_queue(uid):
 
     return(jobs)
 
+def check_list_and_run(job_list, gui=false):
+    """ Take a list of existing jobs, and attach if possible.
+        If no jobs running, create one.
+        Default is tumx, adding gui=true enables gui jobs """
+    pass
+
+def create_job(gui=false):
+    """ Create a job in the queue, wait for it to run, and then attach
+        Ctl-C after submission will not kill job, it will only kill attach
+        queue """
+    pass
+
+def attach_job(job_id, gui=false):
+    """ Attach to a currently running job, default is tmux, for gui add
+        gui=true """
+    pass
+
 def print_jobs(job_list):
     """ Pretty print a list of running interactive jobs from create_queue """
     gui_jobs  = {}
@@ -110,6 +127,7 @@ def print_jobs(job_list):
     # Print the thing
     name_len = name_len + 2
     print("Job_ID".ljust(8) + "Job_Name".ljust(name_len) + "Job_Type".ljust(10) + "Queue".ljust(8) + "Node".ljust(10))
+    print("=".ljust(6, '=') + "  " + "=".ljust(name_len - 2, '=') + "  " + "=".ljust(8, '=') + "  " + "=".ljust(6, '=') + "  " + "=".ljust(8, '='))
     for k,v in gui_jobs.items():
         print(k.ljust(8) + v['job_name'].ljust(name_len) + "GUI".ljust(10) + v['queue'].ljust(8) + v['node'].ljust(10))
     for k,v in tmux_jobs.items():
@@ -126,8 +144,8 @@ def _get_args():
     # Optional Arguments
     parser.add_argument('-l', '--list',   action='store_true', help="List running interactive jobs")
     parser.add_argument('-c', '--create', action='store_true', help="Create a new job even if existing jobs are running")
-    parser.add_argument('-g', '--gui',    action='store_true', help="Create a GUI job")
-    parser.add_argument('-t', '--tmux',   action='store_true', help="Create a tmux job, this is the default")
+    parser.add_argument('-g', '--gui',    action='store_true', help="Create a GUI job, without this flag, tmux is assumed")
+    parser.add_argument('-j', '--jobid',  default='', help="Specify the jobid to attach to, if not provided, top hit assumed")
 
     return parser
 
@@ -143,18 +161,31 @@ def main():
 
     # Don't bother checking queue if the user just wants a new job
     if args.create:
-        pass
+        if args.gui:
+            create_job(gui=true)
+        else:
+            create_job(gui=false)
 
     # Get job list from queue
     job_list = check_queue(getpwuid(getuid()).pw_name)
 
     # Print the list if that is all that is required
     if args.list:
-        print_jobs(job_list)
-
-    if not job_list:
-        print("No running jobs")
+        if job_list:
+            print_jobs(job_list)
+        else:
+            print("No running jobs")
         sys.exit(0)
+
+    # If a job ID is specified, just jump straight to attachment
+    if args.jobid:
+        attach_job(jobid, job_list)
+
+    # Start the job creation and connection system
+    if args.gui:
+        check_list_and_run(job_list, gui=true)
+    else:
+        check_list_and_run(job_list, gui=false)
 
 # The end
 if __name__ == '__main__':

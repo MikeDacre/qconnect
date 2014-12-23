@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.5                                                                 #
-# Last modified: 2014-12-22 21:18
+# Last modified: 2014-12-22 22:00
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -35,7 +35,7 @@ from time import sleep
 import sys, os
 
 # Config paramaters
-default_cores     = 4
+default_cores     = 1
 default_max_cores = 8   # Used for calculating memory request, not a hard cap
 default_max_mem   = 16  # In GB, used to calculate a default memory based on number of cores
 

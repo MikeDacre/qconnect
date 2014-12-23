@@ -14,7 +14,7 @@
 #       LICENSE: MIT License, Property of Stanford, Use as you wish
 #       VERSION: 0.1
 #       CREATED: 2014-12-17 18:07
-# Last modified: 2014-12-22 17:42
+# Last modified: 2014-12-22 18:29
 #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in
 #                the Torque interactive queue
@@ -40,6 +40,7 @@ from re import findall as find
 from re import split as s
 from os  import getuid
 from pwd import getpwuid
+from time import sleep
 import sys, os
 
 # Config paramaters
@@ -99,16 +100,43 @@ def check_queue(uid):
         jobs[job_id] = {'queue'    : queue,
                         'job_name' : name,
                         'type'     : type,
-                        'node'     : nodes
+                        'node'     : node,
                         'state'    : f[9]}
 
     return(jobs)
 
 def check_job(job_id):
-    """ Check a job_id, if it is running return node, if it is queued,
-        return Q, ele"""
-    qstat = rn(['qstat', job_id]).decode('utf8').split('\n')[5:-1]
-    if f[9] ==
+    """ Check a job_id, if it is running return state, else return False """
+    qstat = rn(['qstat', job_id]).decode('utf8').split('\n')[2:3]
+
+    if not qstat:
+        return(False)
+
+    return(s(r' +', qstat[0].rstrip())[4])
+
+def try_to_attach(job_id):
+    """ Try to attach to job_id every two seconds until success or error """
+    while 1:
+        s = check_job(job_id)
+        if s:
+            if s == 'Q':
+                continue
+            elif s == 'C':
+                print("Job error, job already completed. Either you completed it normally")
+                print("Or it errored out and failed. Check `qstat -f" + job_id + "for more")
+                print("details. Exiting")
+                sys.exit(3)
+            elif s == 'R':
+                attach_job(job_id)
+                break
+            else:
+                print("Job attach failed due to a failed state in the queue. This may mean an old job")
+                print("is in the process of exiting")
+                sys.exit(10)
+        else:
+            print("Queue appears empty, perhaps try running again, or check qstat. It may")
+            print("be necessary to adjust the sleep length")
+        sleep(2)
 
 def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name=''):
     """ Take a list of existing jobs, and attach if possible.
@@ -120,9 +148,10 @@ def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name=''):
             return
     job_id = create_job(cores=cores, mem=mem, gui=gui, name=name)
     print("Job created, waiting to attach. If the queue is long, you can safely Ctrl-C")
-    print("and come back when the job is running. Then just run qconnect -j" + job_id)
-    print("to attach")
-    attach_job(job_id)
+    print("and come back when the job is running. Then just run qconnect -j " + job_id)
+    print("to attach\n")
+    sleep(2)
+    try_to_attach(job_id)
     return
 
 def create_job(cores=default_cores, mem='', gui='', name=''):
@@ -192,7 +221,8 @@ def create_job(cores=default_cores, mem='', gui='', name=''):
 
     # Get job number
     job_no = (pbs_submit.stdout.read().decode().rstrip())
-    print('\t'.join([job_no, job_name]))
+    job_no = find(r'[0-9]+', job_no)[0]
+    print("Job", job_name, "created with job id", job_no, "\n")
 
     return(job_no)
 
@@ -235,14 +265,15 @@ def print_jobs(job_list):
     name_len = name_len + 2
 
     # Print the thing
-    print("Job_ID".ljust(8) + "Job_Name".ljust(name_len) + "Job_Type".ljust(10) + "Queue".ljust(13) + "Node".ljust(10))
-    print("=".ljust(6, '=') + "  " + "=".ljust(name_len - 2, '=') + "  " + "=".ljust(8, '=') + "  " + "=".ljust(11, '=') + "  " + "=".ljust(8, '='))
+    print("Job_ID".ljust(8) + "Job_Name".ljust(name_len) + "Job_Type".ljust(10) + "Queue".ljust(13) + "Node".ljust(8) + "State".ljust(7))
+    print("=".ljust(6, '=') + "  " + "=".ljust(name_len - 2, '=') + "  " + "=".ljust(8, '=') + "  " + "=".ljust(11, '=') + "  " + "=".ljust(6, '=') + "  " + "=".ljust(5, '='))
     for k,v in gui_jobs.items():
         name = v['job_name'] if v['job_name'] else v['type']
-        print(k.ljust(8) + name.ljust(name_len) + "GUI".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(10))
+        print(name)
+        print(k.ljust(8) + name.ljust(name_len) + "GUI".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(8) + v['state'].ljust(10))
     for k,v in tmux_jobs.items():
         name = v['job_name'] if v['job_name'] else v['type']
-        print(k.ljust(8) + name.ljust(name_len) + "TMUX".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(10))
+        print(k.ljust(8) + name.ljust(name_len) + "TMUX".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(8) + v['state'].ljust(10))
 
 def _get_args():
     """Command Line Argument Parsing"""

@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # vim:fenc=utf-8 tabstop=4 expandtab shiftwidth=4 softtabstop=4
-#
-# Copyright © Mike Dacre <mike.dacre@gmail.com>
-#
-# Distributed under terms of the MIT license
 """
 #====================================================================================
 #
 #          FILE: qconnect (python 3)
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com
-#  ORGANIZATION: Stanford University
 #       LICENSE: MIT License, Property of Stanford, Use as you wish
-#       VERSION: 0.1
-#       CREATED: 2014-12-17 18:07
-# Last modified: 2014-12-22 20:01
+#       VERSION: 1.5
+# Last modified: 2014-12-22 20:29
 #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in
 #                the Torque interactive queue
@@ -22,16 +15,11 @@
 #         USAGE: If you run without arguments, qconnect will search for a
 #                running job, if it cannot find one, it will initiate a tmux
 #                job. If there is an existing job, running it will
-#                connect to that job. If there are multiple jobs present and no
-#                arguments are given, qconnect will connect to the first job it
-#                finds. If you explicitly request a GUI or TMUX job, it will
-#                connect to the first one of those it finds, if one does not
-#                exist, it will create a new one.
+#                connect to that job.
 #
 #                Note: If you want to use VNC, extra configuration is required,
-#                see the man page
 #
-#                To explicitly create a new job pass '-c'
+#                For more info see the man page
 #
 #====================================================================================
 """

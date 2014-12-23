@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com
 #       LICENSE: MIT License, Property of Stanford, Use as you wish
 #       VERSION: 1.5
-# Last modified: 2014-12-22 20:29
+# Last modified: 2014-12-22 20:47
 #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in
 #                the Torque interactive queue
@@ -153,15 +153,16 @@ def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name='', v
 
     # Attach first job that matches request
     queued_job = ''
-    for k,v in job_list.items():
-        if v['type'] == job_type:
-            if v['state'] == 'Q':
-                queued_job = k
-            elif v['state'] == 'R':
-                try_to_attach(k)
-                return
-    if queued_job:
-        try_to_attach(queued_job)
+    if job_list:
+        for k,v in job_list.items():
+            if v['type'] == job_type:
+                if v['state'] == 'Q':
+                    queued_job = k
+                elif v['state'] == 'R':
+                    try_to_attach(k)
+                    return
+        if queued_job:
+            try_to_attach(queued_job)
 
     # If that fails, there are no running jobs, so make one
     job_id = create_job(cores=cores, mem=mem, gui=gui, name=name, vnc=vnc)

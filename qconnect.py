@@ -14,7 +14,7 @@
 #       LICENSE: MIT License, Property of Stanford, Use as you wish
 #       VERSION: 0.1
 #       CREATED: 2014-12-17 18:07
-# Last modified: 2014-12-22 13:30
+# Last modified: 2014-12-22 17:42
 #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in
 #                the Torque interactive queue
@@ -38,6 +38,8 @@ import subprocess
 from subprocess import check_output as rn
 from re import findall as find
 from re import split as s
+from os  import getuid
+from pwd import getpwuid
 import sys, os
 
 # Config paramaters
@@ -46,7 +48,8 @@ default_max_cores = 8   # Used for calculating memory request, not a hard cap
 default_max_mem   = 16  # In GB, used to calculate a default memory based on number of cores
 
 # Get UID
-uid = rn('echo $UID', shell=True).decode('utf8').rstrip()
+uidno = rn('echo $UID', shell=True).decode('utf8').rstrip()
+uid   = getpwuid(getuid()).pw_name
 
 def check_queue(uid):
     """ Check the queue for any uid string, return job list with running
@@ -81,10 +84,6 @@ def check_queue(uid):
         p2 = subprocess.Popen(['grep', 'Job_Name'], stdin=p1.stdout, stdout=subprocess.PIPE)
         names = p2.communicate()[0].decode('utf8').rstrip().split(' ')[-1].split(',')
 
-        # If non-segmented name, skip
-        if len(names) < 2:
-            continue
-
         name = ','.join(names[0:-1])
 
         # Check that this is actually one of our jobs
@@ -95,18 +94,36 @@ def check_queue(uid):
         else:
             continue
 
-        jobs[job_id] = {'queue'    : f[2],
+        # Fix queue name
+        queue = 'interactive' if 'interact' else queue
+        jobs[job_id] = {'queue'    : queue,
                         'job_name' : name,
                         'type'     : type,
-                        'node'     : node}
+                        'node'     : nodes
+                        'state'    : f[9]}
 
     return(jobs)
 
-def check_list_and_run(job_list, gui=''):
+def check_job(job_id):
+    """ Check a job_id, if it is running return node, if it is queued,
+        return Q, ele"""
+    qstat = rn(['qstat', job_id]).decode('utf8').split('\n')[5:-1]
+    if f[9] ==
+
+def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name=''):
     """ Take a list of existing jobs, and attach if possible.
         If no jobs running, create one.
         Default is tumx, adding gui="Some program" enables gui jobs """
-    pass
+    for k,v in job_list.items():
+        if v['type'] == 'tmux':
+            attach_job(k)
+            return
+    job_id = create_job(cores=cores, mem=mem, gui=gui, name=name)
+    print("Job created, waiting to attach. If the queue is long, you can safely Ctrl-C")
+    print("and come back when the job is running. Then just run qconnect -j" + job_id)
+    print("to attach")
+    attach_job(job_id)
+    return
 
 def create_job(cores=default_cores, mem='', gui='', name=''):
     """ Create a job in the queue, wait for it to run, and then attach
@@ -184,7 +201,7 @@ def attach_job(job_id):
         type='gui' """
 
     # Get details
-    job_list = check_queue()
+    job_list = check_queue(uid)
     try:
         node = job_list[job_id]['node']
         type = job_list[job_id]['type']
@@ -207,7 +224,7 @@ def print_jobs(job_list):
     """ Pretty print a list of running interactive jobs from create_queue """
     gui_jobs  = {}
     tmux_jobs = {}
-    name_len = 20
+    name_len = 10
 
     for k, v in job_list.items():
         name_len = max([name_len, len(v['job_name'])])
@@ -215,15 +232,17 @@ def print_jobs(job_list):
             gui_jobs[k] = v
         else:
             tmux_jobs[k] = v
+    name_len = name_len + 2
 
     # Print the thing
-    name_len = name_len + 2
-    print("Job_ID".ljust(8) + "Job_Name".ljust(name_len) + "Job_Type".ljust(10) + "Queue".ljust(8) + "Node".ljust(10))
-    print("=".ljust(6, '=') + "  " + "=".ljust(name_len - 2, '=') + "  " + "=".ljust(8, '=') + "  " + "=".ljust(6, '=') + "  " + "=".ljust(8, '='))
+    print("Job_ID".ljust(8) + "Job_Name".ljust(name_len) + "Job_Type".ljust(10) + "Queue".ljust(13) + "Node".ljust(10))
+    print("=".ljust(6, '=') + "  " + "=".ljust(name_len - 2, '=') + "  " + "=".ljust(8, '=') + "  " + "=".ljust(11, '=') + "  " + "=".ljust(8, '='))
     for k,v in gui_jobs.items():
-        print(k.ljust(8) + v['job_name'].ljust(name_len) + "GUI".ljust(10) + v['queue'].ljust(8) + v['node'].ljust(10))
+        name = v['job_name'] if v['job_name'] else v['type']
+        print(k.ljust(8) + name.ljust(name_len) + "GUI".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(10))
     for k,v in tmux_jobs.items():
-        print(k.ljust(8) + v['job_name'].ljust(name_len) + "TMUX".ljust(10) + v['queue'].ljust(8) + v['node'].ljust(10))
+        name = v['job_name'] if v['job_name'] else v['type']
+        print(k.ljust(8) + name.ljust(name_len) + "TMUX".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(10))
 
 def _get_args():
     """Command Line Argument Parsing"""
@@ -249,8 +268,6 @@ def _get_args():
 # Main function for direct running
 def main():
     """Run directly"""
-    from os  import getuid
-    from pwd import getpwuid
 
     # Get commandline arguments
     parser = _get_args()
@@ -261,11 +278,14 @@ def main():
     # Don't bother checking queue if the user just wants a new job
     if args.create:
         job_id = create_job(cores=args.cores, mem=args.mem, gui=args.gui, name=name)
-        #attach_job(job_id)
+        print("Job created, waiting to attach. If the queue is long, you can safely Ctrl-C")
+        print("and come back when the job is running. Then just run qconnect -j" + job_id)
+        print("to attach")
+        attach_job(job_id)
         return
 
     # Get job list from queue
-    job_list = check_queue(getpwuid(getuid()).pw_name)
+    job_list = check_queue(uid)
 
     # Print the list if that is all that is required
     if args.list:
@@ -277,15 +297,10 @@ def main():
 
     # If a job ID is specified, just jump straight to attachment
     if args.job_id:
-        attach_job(job_id)
+        attach_job(args.job_id)
 
     # Start the job creation and connection system
-    if args.gui:
-        check_list_and_run(job_list, gui=True)
-        return
-    else:
-        check_list_and_run(job_list, gui=False)
-        return
+    check_list_and_run(job_list, cores=args.cores, mem=args.mem, gui=args.gui, name=args.name)
 
 # The end
 if __name__ == '__main__':

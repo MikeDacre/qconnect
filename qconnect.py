@@ -14,7 +14,7 @@
 #       LICENSE: MIT License, Property of Stanford, Use as you wish
 #       VERSION: 0.1
 #       CREATED: 2014-12-17 18:07
-# Last modified: 2014-12-22 18:29
+# Last modified: 2014-12-22 20:01
 #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in
 #                the Torque interactive queue
@@ -27,6 +27,9 @@
 #                finds. If you explicitly request a GUI or TMUX job, it will
 #                connect to the first one of those it finds, if one does not
 #                exist, it will create a new one.
+#
+#                Note: If you want to use VNC, extra configuration is required,
+#                see the man page
 #
 #                To explicitly create a new job pass '-c'
 #
@@ -90,6 +93,8 @@ def check_queue(uid):
         # Check that this is actually one of our jobs
         if names[-1] == 'int_tmux':
             type = 'tmux'
+        elif names[-1] == 'int_vnc':
+            type = 'vnc'
         elif names[-1] == 'int_gui':
             type = 'gui'
         else:
@@ -116,14 +121,24 @@ def check_job(job_id):
 
 def try_to_attach(job_id):
     """ Try to attach to job_id every two seconds until success or error """
+    print("Waiting to attach. If the queue is long, you can safely Ctrl-C")
+    print("and come back when the job is running. Then just run qconnect -j " + job_id)
+    print("to attach\n")
+
+    count = 1
     while 1:
+        count = count - 1
+        sleep(2)
         s = check_job(job_id)
         if s:
             if s == 'Q':
+                if count == 0:
+                    print("Job is still queueing, we will attach ASAP")
+                    count = 20
                 continue
             elif s == 'C':
                 print("Job error, job already completed. Either you completed it normally")
-                print("Or it errored out and failed. Check `qstat -f" + job_id + "for more")
+                print("Or it errored out and failed. Check `qstat -f" + job_id + "` for more")
                 print("details. Exiting")
                 sys.exit(3)
             elif s == 'R':
@@ -136,25 +151,37 @@ def try_to_attach(job_id):
         else:
             print("Queue appears empty, perhaps try running again, or check qstat. It may")
             print("be necessary to adjust the sleep length")
-        sleep(2)
 
-def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name=''):
+def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name='', vnc=False):
     """ Take a list of existing jobs, and attach if possible.
         If no jobs running, create one.
         Default is tumx, adding gui="Some program" enables gui jobs """
+    if gui:
+        job_type = 'gui'
+    elif vnc:
+        job_type = 'vnc'
+    else:
+        job_type = 'tmux'
+
+    # Attach first job that matches request
+    queued_job = ''
     for k,v in job_list.items():
-        if v['type'] == 'tmux':
-            attach_job(k)
-            return
-    job_id = create_job(cores=cores, mem=mem, gui=gui, name=name)
-    print("Job created, waiting to attach. If the queue is long, you can safely Ctrl-C")
-    print("and come back when the job is running. Then just run qconnect -j " + job_id)
-    print("to attach\n")
+        if v['type'] == job_type:
+            if v['state'] == 'Q':
+                queued_job = k
+            elif v['state'] == 'R':
+                try_to_attach(k)
+                return
+    if queued_job:
+        try_to_attach(queued_job)
+
+    # If that fails, there are no running jobs, so make one
+    job_id = create_job(cores=cores, mem=mem, gui=gui, name=name, vnc=vnc)
     sleep(2)
     try_to_attach(job_id)
     return
 
-def create_job(cores=default_cores, mem='', gui='', name=''):
+def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
     """ Create a job in the queue, wait for it to run, and then attach
         Ctl-C after submission will not kill job, it will only kill attach
         queue """
@@ -183,20 +210,26 @@ def create_job(cores=default_cores, mem='', gui='', name=''):
     # Create job name
     if gui:
         job_name = name + ',int_gui' if name else 'int_gui'
+    elif vnc:
+        job_name = name + ',int_vnc' if name else 'int_vnc'
     else:
         job_name = name + ',int_tmux' if name else 'int_tmux'
 
     # Prep the job
     template = "#!/bin/bash\n#PBS -S /bin/bash\n"
     template = ''.join([template, "#PBS -q interactive", '\n#PBS -N ', job_name,
-                        '\nPBS -l nodes=1:ppn=' + str(cores),
-                        '\nPBS -l mem=' + mem])
+                        '\n#PBS -l nodes=1:ppn=' + str(cores),
+                        '\n#PBS -l mem=' + mem])
 
     if gui:
         template = template + ("\n\ndisplay=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
                                "program=\"" + gui + "\"\n"
                                "xpra start --no-pulseaudio --start-child=\"${program}\" --exit-with-children --no-daemon :$display\n"
                                "xpra stop :$display")
+
+    elif vnc:
+        template = template + ("\n\nvncserver -geometry 1280x1024 -fg\n")
+
     else:
         template = template + ("\n\nsession_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
                                "CMD=\"tmux new-session -s $session_id -d\"\n"
@@ -233,22 +266,67 @@ def attach_job(job_id):
     # Get details
     job_list = check_queue(uid)
     try:
-        node = job_list[job_id]['node']
-        type = job_list[job_id]['type']
+        node  = job_list[job_id]['node']
+        type  = job_list[job_id]['type']
+        state = job_list[job_id]['state']
     except KeyError:
         print("Sorry, that job number doesn't exist. Please try again")
         print_jobs(job_list)
         sys.exit(1)
+
+    if not state == 'R':
+        print("Job not running, cannot attach")
+        return
 
     if type == 'tmux':
         if rn('echo $TMUX', shell=True).decode().rstrip():
             print("You are already running a tmux session, sessions should be nested with care")
             print("To force run, unset the $TMUX variable, but I suggest you just detatch your")
             print("current session and try the same command again")
-            return()
+            return
 
         # Actually attach to the session!
-        subprocess.call(['ssh', node, '-t', 'tmux', 'a', '-t', job_id])
+        job_string = ' '.join(['ssh', node, '-t', 'tmux', 'a', '-t', job_id])
+        subprocess.call(job_string, shell=True)
+
+    elif type == 'gui':
+        print("You MUST NOT close your program by closing the window unless you want to")
+        print("terminate your session")
+        print("To preserve your session, you need to Ctrl-C in the command line, not close")
+        print("the window\n")
+        sleep(2)
+        subprocess.call(['xpra', 'attach', 'ssh:' + uid + '@' + node + ':' + job_id])
+        return
+
+    elif type == 'vnc':
+        # Get VNC Port
+        ports = []
+        for i in os.listdir(os.environ['HOME'] + '/.vnc'):
+            if i.startswith(node) and i.endswith('pid'):
+                    port = find(r':([0-9]+)\.pid', i)[0]
+                    ports.append(port)
+
+        if not ports:
+            print("It appears no VNC servers are running on the selected server.")
+            print("If the job is still running in the queue, there is a problem.")
+            print("Try clearing out the *.log and *.pid files in $HOME/.vnc, and killing")
+            print("the running VNC queue job")
+            return
+
+        if len(ports) > 1:
+            print("There is more than one vnc server running for you on that node.")
+            print("That isn't allowed and I don't know which one to join. It may")
+            print("be that your last session exited without cleaning $HOME/.vnc")
+            print("Check in there and clean out log files for vnc servers that")
+            print("aren't running to prevent problems")
+            return
+
+        subprocess.call(['vncviewer', node + ':' + ports[0]])
+        return
+
+    else:
+        print("I don't understand the job type")
+        return
 
 def print_jobs(job_list):
     """ Pretty print a list of running interactive jobs from create_queue """
@@ -286,13 +364,16 @@ def _get_args():
     # Connection Arguments
     parser.add_argument('-l', '--list',   action='store_true', help="List running interactive jobs")
     parser.add_argument('-c', '--create', action='store_true', help="Create a new job even if existing jobs are running")
-    parser.add_argument('-g', '--gui',    help="Create a GUI job with this program")
     parser.add_argument('-j', '--job_id',  default='', help="Specify the job_id to attach to, if not provided, top hit assumed")
 
     # Job control arguments - Only relevant for creation
-    parser.add_argument('-n', '--name',  help="A name for the job, not required")
-    parser.add_argument('-t', '--cores', type=int, default=default_cores, help="Number of threads to request for job")
-    parser.add_argument('-m', '--mem',   type=int, help="Amount of memory to request for job in GB (integer)")
+    parser.add_argument('-g', '--gui',   help="[Create Only] Create a GUI job with this program (requires an executable as an argument)")
+    parser.add_argument('-n', '--name',  help="[Create Only] A name for the job, not required")
+    parser.add_argument('-t', '--cores', type=int, default=default_cores, help="[Create Only] Number of threads to request for job")
+    parser.add_argument('-m', '--mem',   type=int, help="[Create Only] Amount of memory to request for job in GB (integer)")
+
+    # VNC
+    parser.add_argument('--vnc', action='store_true', help="Create or attach to an XFCE VNC. Not recommended, but sometimes useful")
 
     return parser
 
@@ -307,12 +388,10 @@ def main():
     name = args.name if args.name else ''
 
     # Don't bother checking queue if the user just wants a new job
-    if args.create:
+    if args.create and not args.vnc:
         job_id = create_job(cores=args.cores, mem=args.mem, gui=args.gui, name=name)
-        print("Job created, waiting to attach. If the queue is long, you can safely Ctrl-C")
-        print("and come back when the job is running. Then just run qconnect -j" + job_id)
-        print("to attach")
-        attach_job(job_id)
+        sleep(2)
+        try_to_attach(job_id)
         return
 
     # Get job list from queue
@@ -328,10 +407,11 @@ def main():
 
     # If a job ID is specified, just jump straight to attachment
     if args.job_id:
-        attach_job(args.job_id)
+        try_to_attach(args.job_id)
+        return
 
     # Start the job creation and connection system
-    check_list_and_run(job_list, cores=args.cores, mem=args.mem, gui=args.gui, name=args.name)
+    check_list_and_run(job_list, cores=args.cores, mem=args.mem, gui=args.gui, name=args.name, vnc=args.vnc)
 
 # The end
 if __name__ == '__main__':

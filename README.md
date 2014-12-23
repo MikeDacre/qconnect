@@ -1,40 +1,20 @@
 qconnect
 ========
-A simple series of scripts that allow you to use
-torque and xpra to run persistent GUI programs on 
-a cluster.
-
-To use, xpra must be installed on all of the nodes, 
-and the users must be able to ssh into the node running
-their jobs.
-
-It is possible to make this happen using the pam module
-that ships with torque.
+Allows the running of reconnectable applications via torque
 
 Usage
 -----
 
-### Starting a job
-To use this system, you must start your GUI job using a 
-script like the one at /usr/share/torque-xpra/rstudio.pbs
+The  default setting is to create and connect to a tmux session, passing '--gui' will create a gui job with xpra. You must provide an executable name, e.g. 'rstudio-bin'.
 
-This script runs rstudio on a node with 4GB of memory. It 
-starts an xpra server on the node with the same DISPLAY port
-as the PBS jobid, this prevents conflicts between jobs.
+Passing '--vnc' will create an xfce vnc session and attach to it. You can only have one of these.
 
-It also stops the server after the program finishes execution,
-this is very important to ensure the health of the nodes. Do
-not remove that line.
+If you run without arguments, qconnect will search for a running job, if it cannot find one, it will initiate a tmux job. If there is an existing job, running  it will  connect  to  that  job.  If  there  are multiple jobs present and no arguments are given, qconnect will connect to the first job it finds. If you explicitly request a GUI job, it will connect to the first one of those it finds, if one does not exist, it will create a new one.
 
-### Connecting to a job
-To connect to the job, just find the job number with qstat 
-and run:
+By default, qconnect will request 4 cores and 16GB of memory on the node it connects to, these can be modified with the flags '-t' and '-m'. A job name  can  also be specified with '-n'.
 
-    qconnect <job_number>
+Full usage information in the man page
 
-NOTE:: You must disconnect from the job by killing the 
-qconnect session on the command line. Exiting out of the 
-window will kill the job and thus the server.
 
 Note on memory usage
 --------------------

@@ -6,8 +6,8 @@
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
-#       VERSION: 1.5                                                                 #
-# Last modified: 2015-01-06 20:07
+#       VERSION: 1.6                                                                 #
+# Last modified: 2015-01-06 20:11
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #

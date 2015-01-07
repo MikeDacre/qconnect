@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.5                                                                 #
-# Last modified: 2015-01-06 16:18
+# Last modified: 2015-01-06 17:19
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -184,7 +184,7 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
 
     # Create job name
     if gui:
-        job_name = name + ',int_gui' if name else 'int_gui'
+        job_name = name + '_' + gui + ',int_gui' if name else gui + ',int_gui'
     elif vnc:
         job_name = name + ',int_vnc' if name else 'int_vnc'
     else:
@@ -194,7 +194,9 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
     template = "#!/bin/bash\n#PBS -S /bin/bash\n"
     template = ''.join([template, "#PBS -q interactive", '\n#PBS -N ', job_name,
                         '\n#PBS -l nodes=1:ppn=' + str(cores),
-                        '\n#PBS -l mem=' + mem])
+                        '\n#PBS -l mem=' + mem,
+                        '\n#PBS -e ' + os.environ['HOME'] + '/.' + job_name + '.error',
+                        '\n#PBS -o /dev/null'])
 
     if gui:
         template = template + ("\n\ndisplay=$(echo $PBS_JOBID | sed 's#\..*##g')\n"

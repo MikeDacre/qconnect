@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.6                                                                 #
-# Last modified: 2015-01-06 20:33
+# Last modified: 2015-01-06 21:08
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -74,16 +74,16 @@ def check_queue(uid):
         # Sometime I completely hate python. Why do I have to do this crap:
         p1 = subprocess.Popen(['qstat', '-f', job_id], stdout=subprocess.PIPE)
         p2 = subprocess.Popen(['grep', 'Job_Name'], stdin=p1.stdout, stdout=subprocess.PIPE)
-        names = p2.communicate()[0].decode('utf8').rstrip().split(' ')[-1].split(',')
+        names = p2.communicate()[0].decode('utf8').rstrip().split(' ')[-1].split('_')
 
-        name = ','.join(names[0:-1])
+        name = '_'.join(names[0:-2])
 
         # Check that this is actually one of our jobs
-        if names[-1] == 'int_tmux':
+        if names[-1] == 'tmux':
             type = 'tmux'
-        elif names[-1] == 'int_vnc':
+        elif names[-1] == 'vnc':
             type = 'vnc'
-        elif names[-1] == 'int_gui':
+        elif names[-1] == 'gui':
             type = 'gui'
         else:
             continue
@@ -127,7 +127,7 @@ def try_to_attach(job_id):
                     continue
                 elif s == 'C':
                     print("Job error, job already completed. Either you completed it normally")
-                    print("Or it errored out and failed. Check `qstat -f" + job_id + "` for more")
+                    print("Or it errored out and failed. Check `qstat -f " + job_id + "` for more")
                     print("details. Exiting")
                     sys.exit(3)
                 elif s == 'R':
@@ -193,11 +193,12 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
 
     # Create job name
     if gui:
-        job_name = name + '_' + gui + ',int_gui' if name else gui + ',int_gui'
+        gui_name = gui.split(' ')[0]
+        job_name = name + '_' + gui_name + '_int_gui' if name else gui_name + '_int_gui'
     elif vnc:
-        job_name = name + ',int_vnc' if name else 'int_vnc'
+        job_name = name + '_int_vnc' if name else 'int_vnc'
     else:
-        job_name = name + ',int_tmux' if name else 'int_tmux'
+        job_name = name + '_int_tmux' if name else 'int_tmux'
 
     # Prep the job
     template = "#!/bin/bash\n#PBS -S /bin/bash\n"
@@ -210,8 +211,11 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
     if gui:
         template = template + ("\n\njob_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
                                "xpra start --no-pulseaudio :$job_id\n"
-                               "DISPLAY=:${job_id}" + gui + "\n"
+                               "export DISPLAY=:${job_id}\n"
+                               "sleep 1\n" +
+                               gui + "\n"
                                "PID=$!\n"
+                               "sleep 1\n"
                                "while true\n"
                                "do\n"
                                "  if kill -0 $PID > /dev/null 2>&1; then\n"
@@ -241,6 +245,7 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
 
     pbs_command = (['qsub'])
 
+    print(template)
     # Submit the job
     pbs_submit = subprocess.Popen(pbs_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     pbs_submit.stdin.write(template.encode())
@@ -342,7 +347,6 @@ def print_jobs(job_list):
     print("=".ljust(6, '=') + "  " + "=".ljust(name_len - 2, '=') + "  " + "=".ljust(8, '=') + "  " + "=".ljust(11, '=') + "  " + "=".ljust(6, '=') + "  " + "=".ljust(5, '='))
     for k,v in gui_jobs.items():
         name = v['job_name'] if v['job_name'] else v['type']
-        print(name)
         print(k.ljust(8) + name.ljust(name_len) + "GUI".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(8) + v['state'].ljust(10))
     for k,v in tmux_jobs.items():
         name = v['job_name'] if v['job_name'] else v['type']

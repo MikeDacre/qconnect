@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.5                                                                 #
-# Last modified: 2014-12-22 22:00
+# Last modified: 2015-01-06 16:18
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -116,7 +116,7 @@ def try_to_attach(job_id):
     count = 1
     while 1:
         count = count - 1
-        sleep(2)
+        sleep(1)
         s = check_job(job_id)
         if s:
             if s == 'Q':
@@ -174,20 +174,6 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
     """ Create a job in the queue, wait for it to run, and then attach
         Ctl-C after submission will not kill job, it will only kill attach
         queue """
-
-    # If gui check that executable exists
-    if gui:
-        prog = gui.split(' ')[0]
-        if not os.path.isfile(prog):
-            prog = os.path.basename(prog)
-            for path in os.environ["PATH"].split(os.path.pathsep):
-                if os.path.exists(path + "/" + prog):
-                    prog = path + "/" + prog
-                    break
-
-            if not os.path.isfile(prog):
-                print(prog + " is not a file. Make sure you provide the full path to the executable")
-                sys.exit(1)
 
     # Figure out memory request
     try:

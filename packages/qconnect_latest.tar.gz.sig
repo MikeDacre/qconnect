@@ -1,1 +1,0 @@
-qconnect_1.6.1.tar.gz.sig

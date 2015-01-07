@@ -32,6 +32,6 @@ gpg --detach-sign --armour ${pkgname}_${pkgver}.tar.gz
 
 echo "Creating symlinks"
 rm ${pkgname}_latest.tar.gz
-rm ${pkgname}_latest.tar.gz.sig
+rm ${pkgname}_latest.tar.gz.asc
 ln -s ${pkgname}_${pkgver}.tar.gz ${pkgname}_latest.tar.gz
-ln -s ${pkgname}_${pkgver}.tar.gz.sig ${pkgname}_latest.tar.gz.sig
+ln -s ${pkgname}_${pkgver}.tar.gz.asc ${pkgname}_latest.tar.gz.asc

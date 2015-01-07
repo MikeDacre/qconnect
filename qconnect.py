@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.5                                                                 #
-# Last modified: 2015-01-06 17:19
+# Last modified: 2015-01-06 19:27
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -108,37 +108,40 @@ def check_job(job_id):
     return(s(r' +', qstat[0].rstrip())[4])
 
 def try_to_attach(job_id):
-    """ Try to attach to job_id every two seconds until success or error """
-    print("Waiting to attach. If the queue is long, you can safely Ctrl-C")
-    print("and come back when the job is running. Then just run qconnect -j " + job_id)
-    print("to attach\n")
+    try:
+        """ Try to attach to job_id every two seconds until success or error """
+        print("Waiting to attach. If the queue is long, you can safely Ctrl-C")
+        print("and come back when the job is running. Then just run qconnect -j " + job_id)
+        print("to attach\n")
 
-    count = 1
-    while 1:
-        count = count - 1
-        sleep(1)
-        s = check_job(job_id)
-        if s:
-            if s == 'Q':
-                if count == 0:
-                    print("Job is still queueing, we will attach ASAP")
-                    count = 20
-                continue
-            elif s == 'C':
-                print("Job error, job already completed. Either you completed it normally")
-                print("Or it errored out and failed. Check `qstat -f" + job_id + "` for more")
-                print("details. Exiting")
-                sys.exit(3)
-            elif s == 'R':
-                attach_job(job_id)
-                break
+        count = 1
+        while 1:
+            count = count - 1
+            sleep(1)
+            s = check_job(job_id)
+            if s:
+                if s == 'Q':
+                    if count == 0:
+                        print("Job is still queueing, we will attach ASAP")
+                        count = 20
+                    continue
+                elif s == 'C':
+                    print("Job error, job already completed. Either you completed it normally")
+                    print("Or it errored out and failed. Check `qstat -f" + job_id + "` for more")
+                    print("details. Exiting")
+                    sys.exit(3)
+                elif s == 'R':
+                    attach_job(job_id)
+                    break
+                else:
+                    print("Job attach failed due to a failed state in the queue. This may mean an old job")
+                    print("is in the process of exiting")
+                    sys.exit(10)
             else:
-                print("Job attach failed due to a failed state in the queue. This may mean an old job")
-                print("is in the process of exiting")
-                sys.exit(10)
-        else:
-            print("Queue appears empty, perhaps try running again, or check qstat. It may")
-            print("be necessary to adjust the sleep length")
+                print("Queue appears empty, perhaps try running again, or check qstat. It may")
+                print("be necessary to adjust the sleep length")
+    except KeyboardInterrupt:
+        print("Goodbye! To reconnect run qconnect -j " + job_id)
 
 def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name='', vnc=False):
     """ Take a list of existing jobs, and attach if possible.
@@ -212,7 +215,6 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
                                "CMD=\"tmux new-session -s $session_id -d\"\n"
                                "$CMD\n"
                                "PID=$(ps axo pid,cmd | grep \"$CMD\" | grep -v grep | awk '{print $1}')\n"
-                               "echo $PID\n\n"
                                "while true\n"
                                "do\n"
                                "  if kill -0 $PID > /dev/null 2>&1; then\n"

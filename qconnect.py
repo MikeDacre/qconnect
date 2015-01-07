@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.6                                                                 #
-# Last modified: 2015-01-06 20:11
+# Last modified: 2015-01-06 20:33
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -295,7 +295,8 @@ def attach_job(job_id):
     elif type == 'vnc':
         # Get VNC Port
         ports = []
-        for i in os.listdir(os.environ['HOME'] + '/.vnc'):
+        files = subprocess.check_output('ssh ' + node + ' "ls $HOME/.vnc"', shell=True).decode().rstrip().split('\n')
+        for i in files:
             if i.startswith(node) and i.endswith('pid'):
                     port = find(r':([0-9]+)\.pid', i)[0]
                     ports.append(port)

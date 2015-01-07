@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.5                                                                 #
-# Last modified: 2015-01-06 19:27
+# Last modified: 2015-01-06 20:07
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -131,7 +131,13 @@ def try_to_attach(job_id):
                     print("details. Exiting")
                     sys.exit(3)
                 elif s == 'R':
-                    attach_job(job_id)
+                    sleep(1)
+                    s = check_job(job_id)
+                    if s == 'R':
+                        attach_job(job_id)
+                    else:
+                        print("Job died before it even started. Sorry")
+                        sys.exit(3)
                     break
                 else:
                     print("Job attach failed due to a failed state in the queue. This may mean an old job")
@@ -202,10 +208,19 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
                         '\n#PBS -o /dev/null'])
 
     if gui:
-        template = template + ("\n\ndisplay=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
-                               "program=\"" + gui + "\"\n"
-                               "xpra start --no-pulseaudio --start-child=\"${program}\" --exit-with-children --no-daemon :$display\n"
-                               "xpra stop :$display")
+        template = template + ("\n\njob_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
+                               "xpra start --no-pulseaudio :$job_id\n"
+                               "DISPLAY=:${job_id}" + gui + "\n"
+                               "PID=$!\n"
+                               "while true\n"
+                               "do\n"
+                               "  if kill -0 $PID > /dev/null 2>&1; then\n"
+                               "    sleep 5\n"
+                               "  else\n"
+                               "    xpra stop :${job_id}\n"
+                               "    exit 0\n"
+                               "  fi\n"
+                               "done\n")
 
     elif vnc:
         template = template + ("\n\nvncserver -geometry 1280x1024 -fg\n")
@@ -214,7 +229,7 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
         template = template + ("\n\nsession_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
                                "CMD=\"tmux new-session -s $session_id -d\"\n"
                                "$CMD\n"
-                               "PID=$(ps axo pid,cmd | grep \"$CMD\" | grep -v grep | awk '{print $1}')\n"
+                               "PID=$!\n"
                                "while true\n"
                                "do\n"
                                "  if kill -0 $PID > /dev/null 2>&1; then\n"

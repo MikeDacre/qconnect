@@ -28,7 +28,7 @@ tar czf ${pkgname}_${pkgver}.tar.gz ${pkgname}_${pkgver}
 rm -rf ${pkgname}_${pkgver}
 
 echo "Signing"
-gpg --detach-sign ${pkgname}_${pkgver}.tar.gz
+gpg --detach-sign --armour ${pkgname}_${pkgver}.tar.gz
 
 echo "Creating symlinks"
 rm ${pkgname}_latest.tar.gz

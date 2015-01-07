@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.6                                                                 #
-# Last modified: 2015-01-06 21:08
+# Last modified: 2015-01-07 12:07
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -38,6 +38,9 @@ import sys, os
 default_cores     = 1
 default_max_cores = 8   # Used for calculating memory request, not a hard cap
 default_max_mem   = 16  # In GB, used to calculate a default memory based on number of cores
+
+# Debuging - prints a bunch of stuff
+debug = False
 
 # Get UID
 uidno = rn('echo $UID', shell=True).decode('utf8').rstrip()
@@ -233,7 +236,7 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
         template = template + ("\n\nsession_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
                                "CMD=\"tmux new-session -s $session_id -d\"\n"
                                "$CMD\n"
-                               "PID=$!\n"
+                               "PID=$(ps axo pid,cmd | grep \"$CMD\" | grep -v grep | awk '{print $1}')\n"
                                "while true\n"
                                "do\n"
                                "  if kill -0 $PID > /dev/null 2>&1; then\n"
@@ -243,9 +246,11 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
                                "  fi\n"
                                "done\n")
 
+    if debug:
+        print(template)
+
     pbs_command = (['qsub'])
 
-    print(template)
     # Submit the job
     pbs_submit = subprocess.Popen(pbs_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     pbs_submit.stdin.write(template.encode())

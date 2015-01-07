@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 # make_package.sh
 # Copyright (C) 2015 Mike Dacre <mike@dacre.me>
 #
@@ -16,7 +16,9 @@ pkgfiles=(qconnect.py qconnect.1.gz README.md LICENSE)
 
 echo "Creating ${pkgname}_${pkgver}"
 mkdir ${pkgname}_${pkgver}
-for i in $pkgfiles; do
+echo $pkgfiles
+for i in ${pkgfiles[*]}; do
+  echo "Copying $i"
   cp ../$i ${pkgname}_${pkgver}
 done
 

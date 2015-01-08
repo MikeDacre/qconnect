@@ -6,8 +6,8 @@
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
-#       VERSION: 1.6.1                                                                 #
-# Last modified: 2015-01-08 13:16
+#       VERSION: 1.7.1-beta                                                          #
+# Last modified: 2015-01-08 15:08
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -363,12 +363,70 @@ def print_jobs(job_list):
         name = v['job_name'] if v['job_name'] else v['type']
         print(k.ljust(8) + name.ljust(name_len) + "TMUX".ljust(10) + v['queue'].ljust(13) + v['node'].ljust(8) + v['state'].ljust(10))
 
+def create_gui(display_id):
+    """ Use xpra to create a gui. Simply set the display variable if it isn't already
+        set and xpra is already running.
+        Returns 'new' or 'old' on success and False on failure"""
+
+    # Check for a GUI
+    session_id = rn("xpra list| grep LIVE 2>/dev/null| grep ':" + display_id + "$' 2>/dev/null| sed 's/.*://g'", shell=True).decode()
+
+    # If doesn't exit, create a session
+    if session_id:
+        type = 'old'
+    else:
+        type = 'new'
+        try:
+            subprocess.check_call(['xpra', 'start', '--no-pulseaudio', ':' + display_id])
+        except subprocess.CalledProcessError as err:
+            print("xpra failed with the following error:\n{0}".format(err))
+            return(False)
+
+    # Set DISPLAY and return success
+    os.environ['DISPLAY'] = ':' + session_id
+    return(type)
+
+def check_state():
+    """ Check if we are already in a qconnect session and return type """
+    try:
+        return(os.environ['QCONNECT'])
+    except KeyError:
+        return(False)
+
+def set_display():
+    """ Check if running in qconnect, and then set xpra display """
+    type = check_state()
+    if type == tmux:
+        job_id = os.environ['PBS_JOBID'].split('.')[0]
+        type = create_gui(job_id)
+        if type == 'old':
+            print("GUI already running on this node. DISPLAY variable set")
+        elif type == 'new':
+            print("Started a new GUI for you. DISPLAY variable set")
+        else:
+            print("Attempt to create GUI failed. Sorry")
+            return
+        print("To connect to the gui, from the login node, run:\n"
+                "xpra attach ssh:" + os.environ['USER'] + '@' + rn('hostname') + ':' + job_id)
+    else:
+        print("Not running in a qconnect session, not creating GUI")
+
 def _get_args():
     """Command Line Argument Parsing"""
     import argparse, sys
 
+    type = check_state()
+    if type:
+        description = ("You are currently in a qconnect " + type + "session\n"
+                       "You will be unable to attach to other tmux qconnect jobs\n"
+                       "Also, if you are not connected to the xpra DISPLAY, vnc and\n"
+                       "GUI jobs will not run, they will initiate, but you won't see them\n\n"
+                       "To create and initialize a display, run qconnect with no options\n")
+    else:
+        description = __doc__
+
     parser = argparse.ArgumentParser(
-                 description=__doc__,
+                 description=description,
                  formatter_class=argparse.RawDescriptionHelpFormatter)
 
     # Connection Arguments

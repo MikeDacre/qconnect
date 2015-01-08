@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.6.1                                                                 #
-# Last modified: 2015-01-07 15:23
+# Last modified: 2015-01-08 13:16
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -212,7 +212,8 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
                         '\n#PBS -o /dev/null'])
 
     if gui:
-        template = template + ("\n\njob_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
+        template = template + ("\n\nexport QCONNECT=gui"
+                               "\n\njob_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
                                "xpra start --no-pulseaudio :$job_id\n"
                                "export DISPLAY=:${job_id}\n"
                                "sleep 1\n" +
@@ -230,22 +231,26 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
                                "done\n")
 
     elif vnc:
-        template = template + ("\n\nvncserver -geometry 1280x1024 -fg\n")
+        template = template + ("\n\nexport QCONNECT=vnc\n\nvncserver -geometry 1280x1024 -fg\n")
 
     else:
-        template = template + ("\n\nsession_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
-                               "CMD=\"tmux new-session -s $session_id -d\"\n"
-                               "$CMD\n"
-                               "PID=$(ps axo pid,cmd | grep \"$CMD\" | grep -v grep | awk '{print $1}')\n"
-                               "while true\n"
-                               "do\n"
-                               "  if kill -0 $PID > /dev/null 2>&1; then\n"
-                               "    sleep 5\n"
-                               "  else\n"
-                               "    exit 0\n"
-                               "  fi\n"
-                               "done\n")
-
+        template = template + ( "\n\nexport QCONNECT=tmux"
+                                "\n\nsession_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
+                                "CMD=\"tmux new-session -s $session_id -d\"\n"
+                                "$CMD\n"
+                                "PID=$(ps axo pid,user,cmd | grep tmux | grep $USER | grep -v grep | awk '{print $1}')\n"
+                                "while true\n"
+                                "do\n"
+                                "  if kill -0 $PID > /dev/null 2>&1; then\n"
+                                "    if [[ ! $(tmux ls | grep $session_id) ]]; then\n"
+                                "      exit 0\n"
+                                "    else\n"
+                                "      sleep 5\n"
+                                "    fi\n"
+                                "  else\n"
+                                "    exit 0\n"
+                                "  fi\n"
+                                "done\n")
     if debug:
         print(template)
 
@@ -260,6 +265,7 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
     job_no = (pbs_submit.stdout.read().decode().rstrip())
     job_no = find(r'[0-9]+', job_no)[0]
     print("Job", job_name, "created with job id", job_no, "\n")
+    sleep(1)
 
     return(job_no)
 

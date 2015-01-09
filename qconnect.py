@@ -6,8 +6,8 @@
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
-#       VERSION: 1.7.1-beta                                                          #
-# Last modified: 2015-01-08 16:07
+#       VERSION: 1.7.1                                                               #
+# Last modified: 2015-01-08 16:40
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -151,7 +151,7 @@ def try_to_attach(job_id, attempt_gui=False):
                 print("be necessary to adjust the sleep length")
 
     except KeyboardInterrupt:
-        print("Goodbye! To reconnect run qconnect -j " + job_id)
+        print("Goodbye! To reconnect run qconnect -j [or --connect-gui] " + job_id)
 
 def check_list_and_run(job_list, cores=default_cores, mem='', gui='', name='', vnc=False):
     """ Take a list of existing jobs, and attach if possible.
@@ -237,6 +237,9 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
     else:
         template = template + ( "\n\nexport QCONNECT=tmux"
                                 "\n\nsession_id=$(echo $PBS_JOBID | sed 's#\..*##g')\n"
+                                "if xpra start --no-pulseaudio :$session_id >/dev/null 2>/dev/null; then\n"
+                                "    export DISPLAY=:$session_id\n"
+                                "fi\n"
                                 "CMD=\"tmux new-session -s $session_id -d\"\n"
                                 "$CMD\n"
                                 "PID=$(ps axo pid,user,cmd | grep tmux | grep $USER | grep -v grep | awk '{print $1}')\n"
@@ -244,6 +247,7 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
                                 "do\n"
                                 "  if kill -0 $PID > /dev/null 2>&1; then\n"
                                 "    if [[ ! $(tmux ls | grep $session_id) ]]; then\n"
+                                "      xpra stop :$session_id >/dev/null 2>/dev/null\n"
                                 "      exit 0\n"
                                 "    else\n"
                                 "      sleep 5\n"
@@ -291,7 +295,7 @@ def attach_job(job_id, attempt_gui=False):
 
     if type == 'gui' or attempt_gui:
         print("You MUST NOT close your program by closing the window unless you want to")
-        print("terminate your session")
+        print("terminate your session\n")
         print("To preserve your session, you need to Ctrl-C in the command line, not close")
         print("the window\n")
         sleep(2)
@@ -420,6 +424,7 @@ def _get_args():
     import argparse, sys
 
     type = check_state()
+    queue = True if check_queue(uid) else False
     if type:
         description = ("NOTE: You are currently in a qconnect " + type + " session\n\n"
                        "You will be unable to attach to other tmux qconnect jobs\n"
@@ -436,7 +441,8 @@ def _get_args():
     # Connection Arguments
     parser.add_argument('-l', '--list',   action='store_true', help="List running interactive jobs")
     parser.add_argument('-c', '--create', action='store_true', help="Create a new job even if existing jobs are running")
-    parser.add_argument('-j', '--job_id',  default='', help="Specify the job_id to attach to, if not provided, top hit assumed")
+    if not type and queue:
+        parser.add_argument('-j', '--job_id',  default='', help="Specify the job_id to attach to, if not provided, top hit assumed")
 
     # Job control arguments - Only relevant for creation
     parser.add_argument('-g', '--gui',   help="[Create Only] Create a GUI job with this program (requires an executable as an argument)")
@@ -448,9 +454,8 @@ def _get_args():
     parser.add_argument('--vnc', action='store_true', help="Create or attach to an XFCE VNC. Not recommended, but sometimes useful")
 
     # GUI Connect if job running
-    if not type and check_queue(uid):
-        parser.add_argument('--connect-gui', dest='connect', help=("Connect to an xpra GUI on a running tmux job. If you provide a job"
-                                                                   "number, qconnect will use that, otherwise top hit assumed"))
+    if not type and queue:
+        parser.add_argument('--connect-gui', dest='connect', help=("Connect to an xpra GUI on a running tmux job. You must provide a job number"))
 
     return parser
 
@@ -483,18 +488,24 @@ def main():
         return
 
     # If a job ID is specified, just jump straight to attachment
-    if args.job_id:
-        try_to_attach(args.job_id)
-        return
+    try:
+        if args.job_id:
+            try_to_attach(args.job_id)
+            return
+    except AttributeError:
+        pass
 
     # Check if we are already in a session
     type = check_state()
-    if type == 'tmux':
-        set_display(type)
-        return
-    elif args.connect:
-        try_to_attach(args.connect, attempt_gui=True)
-        return
+    try:
+        if type == 'tmux':
+            set_display(type)
+            return
+        elif args.connect:
+            try_to_attach(args.connect, attempt_gui=True)
+            return
+    except AttributeError:
+        pass
 
     # Start the job creation and connection system
     check_list_and_run(job_list, cores=args.cores, mem=args.mem, gui=args.gui, name=args.name, vnc=args.vnc)

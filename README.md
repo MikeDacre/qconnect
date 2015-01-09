@@ -17,8 +17,9 @@ You can find the latest package [here](https://github.com/MikeDacre/qconnect/blo
 and the GPG signature [here](https://github.com/MikeDacre/qconnect/blob/master/packages/qconnect_latest.tar.gz)
 
 To install, simply unpack the archive, and put qconnect.py somewhere
-in your $PATH. NOTE: Right now it is only compatible with
-linux.
+in your ``$PATH``. 
+
+NOTE: Right now it is only compatible with linux.
 
 You can also put qconnect.1.gz into your man path if you wish.
 

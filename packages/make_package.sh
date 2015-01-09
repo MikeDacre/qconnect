@@ -12,7 +12,7 @@ fi
 
 pkgver=$1
 pkgname=qconnect
-pkgfiles=(qconnect.py qconnect.1.gz README.md LICENSE)
+pkgfiles=(qconnect.py qconnect.1.gz README.md LICENSE install.sh)
 
 echo "Creating ${pkgname}_${pkgver}"
 mkdir ${pkgname}_${pkgver}

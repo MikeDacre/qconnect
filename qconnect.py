@@ -6,8 +6,8 @@
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
-#       VERSION: 1.7.3                                                               #
-# Last modified: 2015-01-08 19:12
+#       VERSION: 1.8.0-beta                                                          #
+# Last modified: 2015-01-09 10:41
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -23,6 +23,32 @@
 #                                                                                    #
 #====================================================================================#
 """
+##############################################
+#                                            #
+#         Global Config Options              #
+#           Set To Your Needs                #
+#                                            #
+##############################################
+
+# Queue Options
+interactive_queue = 'interactive'
+short_queue_name  - 'interact'   # Sometimes qstat prints a truncated queue name, set this here
+
+# Interactive Node Options
+default_cores     = 1
+default_max_cores = 8   # Used for calculating memory request, set to total cores on node
+default_max_mem   = 32  # In GB, used to calculate a default memory based on number of cores
+
+# Debuging - prints a bunch of stuff
+debug = False
+
+##############################################
+#                                            #
+#      Do Not Edit Below This Line           #
+#                                            #
+##############################################
+
+## Imports
 import subprocess
 
 # Aliases
@@ -34,20 +60,16 @@ from pwd import getpwuid
 from time import sleep
 import sys, os
 
-# Config paramaters
-default_cores     = 1
-default_max_cores = 8   # Used for calculating memory request, not a hard cap
-default_max_mem   = 16  # In GB, used to calculate a default memory based on number of cores
-
-# Debuging - prints a bunch of stuff
-debug = False
+## Global Variable
 
 # Get UID
 uidno = rn('echo $UID', shell=True).decode('utf8').rstrip()
 uid   = getpwuid(getuid()).pw_name
 
 # Version string
-version = '1.7.3'
+version = '1.8.0-beta'
+
+## Functions
 
 def check_queue(uid):
     """ Check the queue for any uid string, return job list with running
@@ -95,7 +117,7 @@ def check_queue(uid):
             continue
 
         # Fix queue name
-        queue = 'interactive' if 'interact' else queue
+        queue = interactive_queue if queue == short_queue_name else queue
         jobs[job_id] = {'queue'    : queue,
                         'job_name' : name,
                         'type'     : type,

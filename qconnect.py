@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.7.2                                                               #
-# Last modified: 2015-01-08 18:15
+# Last modified: 2015-01-08 19:11
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -45,6 +45,9 @@ debug = False
 # Get UID
 uidno = rn('echo $UID', shell=True).decode('utf8').rstrip()
 uid   = getpwuid(getuid()).pw_name
+
+# Version string
+version = '1.7.3'
 
 def check_queue(uid):
     """ Check the queue for any uid string, return job list with running
@@ -467,6 +470,9 @@ def _get_args():
     if not type and queue:
         parser.add_argument('--connect-gui', dest='connect', help=("Connect to an xpra GUI on a running tmux job. You must provide a job number"))
 
+    # Version
+    parser.add_argument('-v', '--version', action='store_true', help="Display version number")
+
     return parser
 
 # Main function for direct running
@@ -476,6 +482,11 @@ def main():
     # Get commandline arguments
     parser = _get_args()
     args = parser.parse_args()
+
+    # Print version number
+    if args.version:
+        print(version)
+        return
 
     name = args.name if args.name else ''
 

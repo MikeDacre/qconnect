@@ -6,8 +6,8 @@
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
-#       VERSION: 1.7.1                                                               #
-# Last modified: 2015-01-08 16:40
+#       VERSION: 1.7.2                                                               #
+# Last modified: 2015-01-08 18:15
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -309,9 +309,19 @@ def attach_job(job_id, attempt_gui=False):
             print("current session and try the same command again")
             return
 
+        # Attempt to initially attach to xpra, fail gracefully without
+        # notifying user
+        GUI_PID=''
+        if subprocess.call("xpra attach ssh:dacre@node01:442597 >/dev/null 2>/dev/null &", shell=True) == 0:
+            GUI_PID = subprocess.check_output('ps axo pid,user,cmd | grep "xpra attach" | grep "442597$"| awk \'{print $1}\'', shell=True).decode().rstrip()
+
         # Actually attach to the session!
         job_string = ' '.join(['ssh', node, '-t', 'tmux', 'a', '-t', job_id])
         subprocess.call(job_string, shell=True)
+
+        # Kill GUI if open
+        if GUI_PID:
+            subprocess.call(['kill', GUI_PID])
 
     elif type == 'vnc':
         # Get VNC Port

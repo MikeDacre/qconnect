@@ -7,7 +7,7 @@
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       LICENSE: MIT License, Property of Stanford, Use as you wish                  #
 #       VERSION: 1.8.0-beta                                                          #
-# Last modified: 2015-01-09 10:41
+# Last modified: 2015-01-09 12:01
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -32,7 +32,7 @@
 
 # Queue Options
 interactive_queue = 'interactive'
-short_queue_name  - 'interact'   # Sometimes qstat prints a truncated queue name, set this here
+short_queue_name  = 'interact'   # The queue name displayed when you run qstat -n -1
 
 # Interactive Node Options
 default_cores     = 1
@@ -50,17 +50,18 @@ debug = False
 
 ## Imports
 import subprocess
+import sys, os
 
 # Aliases
 from subprocess import check_output as rn
-from re import findall as find
-from re import split as s
-from os  import getuid
-from pwd import getpwuid
-from time import sleep
-import sys, os
+from re         import findall      as find
+from re         import split        as s
+from sys        import stderr
+from os         import getuid
+from pwd        import getpwuid
+from time       import sleep
 
-## Global Variable
+## Global Variables
 
 # Get UID
 uidno = rn('echo $UID', shell=True).decode('utf8').rstrip()
@@ -74,8 +75,9 @@ version = '1.8.0-beta'
 def check_queue(uid):
     """ Check the queue for any uid string, return job list with running
         node information. """
+    from re import compile as mkregex
 
-    qstat = rn(['qstat', '-u', uid, '-n', '-1']).decode('utf8').split('\n')[5:-1]
+    qstat = rn(['qstat', '-u', uid, '-n', '-1']).decode('utf8').rstrip().split('\n')[5:]
 
     # If there are no job return nothing
     if not qstat:
@@ -84,7 +86,16 @@ def check_queue(uid):
     jobs = {}
     for i in qstat:
         f = s(r' +', i.rstrip())
-        # Parse job string
+
+        # Only look at jobs in the interactive queue
+        if not f[2] == short_queue_name:
+            continue
+
+        # Skip completed jobs
+        if f[9] == 'C':
+            continue
+
+        # Get node name, if there is one
         if f[11] == '--':
             node = ''
         else:
@@ -93,31 +104,47 @@ def check_queue(uid):
                 continue
             node = str(list(nodes)[0])
 
-        # Skip completed jobs
-        if f[9] == 'C':
-            continue
-
-        # Get name
+        # Get job number
         job_id = find(r'[0-9]+', f[0])[0]
-        # Sometime I completely hate python. Why do I have to do this crap:
-        p1 = subprocess.Popen(['qstat', '-f', job_id], stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(['grep', 'Job_Name'], stdin=p1.stdout, stdout=subprocess.PIPE)
-        names = p2.communicate()[0].decode('utf8').rstrip().split(' ')[-1].split('_')
 
-        name = '_'.join(names[0:-2])
+        # Now that we have a limited job set, use qstat -f to get the
+        # complete job and queue name
+        find_queue = mkregex(r'queue = (.*)$')
+        find_name  = mkregex(r'Job_Name = (.*)$')
+
+        for i in subprocess.check_output(['qstat', '-f', '442597']).decode().rstrip().split('\n'):
+            # Get Queue Name
+            if find_queue.search(i):
+                try:
+                    queue = find_queue.findall(i)[0]
+                except IndexError:
+                    # Queue parsing failed, report this and continue
+                    print("Failed to parse queue for job number:{:^3}\nskipping".format(job_id), file=stderr)
+                    continue
+                if not queue == interactive_queue:
+                    continue
+            elif find_name.search(i):
+                try:
+                    names = find_name.findall(i)[0].split('_')
+                except IndexError:
+                    # Queue parsing failed, report this and continue
+                    print("Failed to parse queue for job number:{:^3}\nskipping".format(job_id), file=stderr)
+                    continue
+
+        name       = '_'.join(names[:-2])
+        identifier = '_'.join(names[-2:])
 
         # Check that this is actually one of our jobs
-        if names[-1] == 'tmux':
+        if identifier == 'int_tmux':
             type = 'tmux'
-        elif names[-1] == 'vnc':
+        elif identifier == 'vnc':
             type = 'vnc'
-        elif names[-1] == 'gui':
+        elif identifier == 'gui':
             type = 'gui'
         else:
             continue
 
         # Fix queue name
-        queue = interactive_queue if queue == short_queue_name else queue
         jobs[job_id] = {'queue'    : queue,
                         'job_name' : name,
                         'type'     : type,

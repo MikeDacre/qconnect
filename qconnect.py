@@ -5,8 +5,8 @@
 #                                                                                    #
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
-#       VERSION: 1.8.0-beta                                                          #
-# Last modified: 2015-01-09 17:11                                                    #
+#       VERSION: 1.8.1                                                               #
+# Last modified: 2015-01-09 17:16                                                    #
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -71,7 +71,7 @@ xpra_installed = True if subprocess.getstatusoutput('which xpra')[0] == 0 else F
 vnc_installed  = True if subprocess.getstatusoutput('which vncviewer')[0] == 0 else False
 
 # Version string
-version = '1.8.0-beta'
+version = '1.8.1'
 
 ## Functions
 
@@ -339,8 +339,13 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
                                 "    else\n"
                                 "      sleep 5\n"
                                 "    fi\n"
-                                "  else\n"
-                                "    exit 0\n"
+                                "  else\n")
+    if xpra_installed:
+        template = template + ("      xpra stop :$session_id >/dev/null 2>/dev/null\n"
+                                "      xpra list >/dev/null 2>/dev/null\n"
+                                "      rm ~/.xpra/:$session_id.log 2>/dev/null\n")
+
+        template = template + ( "    exit 0\n"
                                 "  fi\n"
                                 "done\n")
     if debug:

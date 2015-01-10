@@ -6,7 +6,7 @@
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       VERSION: 1.8.0-beta                                                          #
-# Last modified: 2015-01-09 16:49                                                    #
+# Last modified: 2015-01-09 17:11                                                    #
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -38,7 +38,7 @@ default_max_mem   = 32  # In GB, used to calculate a default memory based on num
 vnc_geometry = '1280x1024'
 
 # Debuging - prints a bunch of stuff
-debug = True
+debug = False
 
 ##############################################
 #                                            #

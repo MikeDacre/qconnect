@@ -6,7 +6,7 @@
 #          FILE: qconnect (python 3)                                                 #
 #        AUTHOR: Michael D Dacre, mike.dacre@gmail.com                               #
 #       VERSION: 1.8.1                                                               #
-# Last modified: 2015-01-09 17:16                                                    #
+# Last modified: 2015-01-14 11:13
 #                                                                                    #
 #   DESCRIPTION: Create and connect to interactive tmux or GUI application in        #
 #                the Torque interactive queue                                        #
@@ -360,7 +360,11 @@ def create_job(cores=default_cores, mem='', gui='', name='', vnc=False):
 
     # Get job number
     job_no = (pbs_submit.stdout.read().decode().rstrip())
-    job_no = find(r'[0-9]+', job_no)[0]
+    try:
+        job_no = find(r'[0-9]+', job_no)[0]
+    except IndexError:
+        print("PBS Submission failed with message:\n{}".format(job_no), file=stderr)
+        sys.exit(1)
     print("Job", job_name, "created with job id", job_no, "\n")
     sleep(1)
 
